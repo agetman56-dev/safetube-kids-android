@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+    #player { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+    var videoId = getParam("v");
+
+    // Викликається автоматично, коли завантажиться https://www.youtube.com/iframe_api
+    function onYouTubeIframeAPIReady() {
+      new YT.Player("player", {
+        videoId: videoId,
+        playerVars: {
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          iv_load_policy: 3,
+          fs: 0,
+          autoplay: 1
+        },
+        events: {
+          onReady: function (e) { e.target.playVideo(); }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

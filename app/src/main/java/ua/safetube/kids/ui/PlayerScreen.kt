@@ -76,25 +76,16 @@ fun PlayerScreen(appState: AppState, videoId: String, onBack: () -> Unit) {
     }
 }
 
+// Реальна HTTPS-сторінка на GitHub Pages (docs/player.html у цьому репозиторії), що вантажить
+// YouTube IFrame Player API. Локальний HTML прямо у WebView (loadDataWithBaseURL) YouTube
+// сприймає як "без легітимного джерела" і видає "помилку 153" — потрібна справжня адреса,
+// з якої браузер сам надішле коректний заголовок Referer, як зі звичайного сайту.
+private const val PLAYER_PAGE_HOST = "https://agetman56-dev.github.io"
+private const val PLAYER_PAGE_URL = "$PLAYER_PAGE_HOST/safetube-kids-android/player.html"
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun EmbeddedYouTubePlayer(videoId: String) {
-    val embedUrl = "https://www.youtube.com/embed/$videoId" +
-        "?rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&autoplay=1&enablejsapi=1"
-
-    // YouTube-плеєр очікує, що /embed/... відкриють у <iframe> на чужій сторінці (як на
-    // звичайних сайтах), а не як головну адресу WebView напряму — інакше видає "помилку 153".
-    // Тому загортаємо у мінімальну HTML-сторінку з іфреймом і вантажимо через
-    // loadDataWithBaseURL(base = youtube.com), щоб плеєр бачив "легітимний" origin.
-    val html = """
-        <!DOCTYPE html>
-        <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-        <body style="margin:0;padding:0;background:#000;overflow:hidden;">
-        <iframe src="$embedUrl" width="100%" height="100%" frameborder="0"
-          allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
-        </body></html>
-    """.trimIndent()
-
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
@@ -110,10 +101,10 @@ private fun EmbeddedYouTubePlayer(videoId: String) {
                         // Обмежуємо тільки головний фрейм — сам iframe із embed-плеєром
                         // повинен вільно вантажитись і посилатись на свої внутрішні ресурси.
                         if (!request.isForMainFrame) return false
-                        return !request.url.toString().startsWith("https://www.youtube.com/embed/")
+                        return !request.url.toString().startsWith(PLAYER_PAGE_HOST)
                     }
                 }
-                loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+                loadUrl("$PLAYER_PAGE_URL?v=$videoId")
             }
         }
     )
