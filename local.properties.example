@@ -1,0 +1,4 @@
+# Скопіюй цей файл у "local.properties" (без .example) для локальної збірки.
+# local.properties в git не потрапляє.
+
+YOUTUBE_API_KEY=встав_сюди_ключ_YouTube_Data_API_v3

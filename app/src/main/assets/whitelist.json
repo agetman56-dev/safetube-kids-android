@@ -1,0 +1,46 @@
+{
+  "categories": [
+    {
+      "id": "cartoons",
+      "title": "Мультфільми",
+      "channels": [
+        { "name": "Ukranimaua (класика)", "username": "ukranimaua" },
+        { "name": "Каю українською", "channelId": "UCXZsX2d_79qSBociU39eBuA" },
+        { "name": "Патрон", "channelId": "UCpjrlBiZRpAQ2pcYgLZ3K_A" },
+        { "name": "Казкарик", "channelId": "UCtk0aHmq3mKrxDx-M_csFEQ" },
+        { "name": "Казки українською", "channelId": "UC-xvVlscVQJu2FpMEBcTMmw" },
+        { "name": "Novator film", "username": "novatorfilm" }
+      ]
+    },
+    {
+      "id": "learning",
+      "title": "Розвиток",
+      "channels": [
+        { "name": "Малятко ТВ", "username": "malyatkotv" },
+        { "name": "Пес Гавчик", "handle": "PesHavchyk" },
+        { "name": "Arina Sun UA", "channelId": "UCPx2RDZMN8s3C9whNqhUSfA" },
+        { "name": "Левенятко", "channelId": "UC1BTkdMvDOo_-sAh4FWy4OQ" }
+      ]
+    },
+    {
+      "id": "music",
+      "title": "Музика",
+      "channels": [
+        { "name": "HeyKids — Дитячі пісні", "channelId": "UC3cOHufFH4tZoiAmdzbfbIA" },
+        { "name": "Kids Tv Ukraine — пісні для дітей", "channelId": "UCguokq_SJLr7xSQLtOhkMuQ" },
+        { "name": "З любов'ю до дітей", "username": "SonechkoProject" }
+      ]
+    },
+    {
+      "id": "english",
+      "title": "English",
+      "channels": [
+        { "name": "Cocomelon", "channelId": "UCbCmjCuTUZos6Inko4u57UQ" },
+        { "name": "Peppa Pig — Official Channel", "channelId": "UCAOtE1V7Ots4DjM8JLlrYgg" },
+        { "name": "Super Simple Songs", "channelId": "UCLsooMJoIpl_7ux2jvdPB-Q" },
+        { "name": "PBS KIDS", "handle": "pbskids" },
+        { "name": "Sesame Street", "handle": "sesamestreet" }
+      ]
+    }
+  ]
+}
