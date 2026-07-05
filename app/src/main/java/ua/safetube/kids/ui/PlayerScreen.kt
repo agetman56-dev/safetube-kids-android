@@ -80,7 +80,20 @@ fun PlayerScreen(appState: AppState, videoId: String, onBack: () -> Unit) {
 @Composable
 private fun EmbeddedYouTubePlayer(videoId: String) {
     val embedUrl = "https://www.youtube.com/embed/$videoId" +
-        "?rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&autoplay=1"
+        "?rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&autoplay=1&enablejsapi=1"
+
+    // YouTube-плеєр очікує, що /embed/... відкриють у <iframe> на чужій сторінці (як на
+    // звичайних сайтах), а не як головну адресу WebView напряму — інакше видає "помилку 153".
+    // Тому загортаємо у мінімальну HTML-сторінку з іфреймом і вантажимо через
+    // loadDataWithBaseURL(base = youtube.com), щоб плеєр бачив "легітимний" origin.
+    val html = """
+        <!DOCTYPE html>
+        <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+        <body style="margin:0;padding:0;background:#000;overflow:hidden;">
+        <iframe src="$embedUrl" width="100%" height="100%" frameborder="0"
+          allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+        </body></html>
+    """.trimIndent()
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -89,20 +102,18 @@ private fun EmbeddedYouTubePlayer(videoId: String) {
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 settings.javaScriptEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
-                // YouTube-плеєр не запускається без локального сховища (localStorage/IndexedDB)
-                // і "бачить", що це WebView за міткою ";wv" у типовому User-Agent — обидва
-                // моменти спричиняють "помилку 153 / конфігурації відеопрогравача".
                 settings.domStorageEnabled = true
                 settings.userAgentString = settings.userAgentString.replace("; wv", "")
                 android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        val url = request.url.toString()
-                        // Дозволяємо лише сам embed-плеєр; будь-яка спроба вивести за межі — блокується.
-                        return !url.startsWith("https://www.youtube.com/embed/")
+                        // Обмежуємо тільки головний фрейм — сам iframe із embed-плеєром
+                        // повинен вільно вантажитись і посилатись на свої внутрішні ресурси.
+                        if (!request.isForMainFrame) return false
+                        return !request.url.toString().startsWith("https://www.youtube.com/embed/")
                     }
                 }
-                loadUrl(embedUrl)
+                loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
             }
         }
     )
