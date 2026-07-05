@@ -89,6 +89,12 @@ private fun EmbeddedYouTubePlayer(videoId: String) {
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 settings.javaScriptEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
+                // YouTube-плеєр не запускається без локального сховища (localStorage/IndexedDB)
+                // і "бачить", що це WebView за міткою ";wv" у типовому User-Agent — обидва
+                // моменти спричиняють "помилку 153 / конфігурації відеопрогравача".
+                settings.domStorageEnabled = true
+                settings.userAgentString = settings.userAgentString.replace("; wv", "")
+                android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val url = request.url.toString()
