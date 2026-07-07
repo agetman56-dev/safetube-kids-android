@@ -78,15 +78,16 @@ fun PlayerScreen(appState: AppState, videoId: String, onBack: () -> Unit) {
     }
 }
 
-// Домени рекламних/трекінгових мереж Google — запити на них просто обрізаються (порожня
-// відповідь), відео від цього не ламається, зникають лише рекламні вставки й трекери.
+// Лише чисто трекінгові домени (аналітика, без відношення до самого відтворення).
+// doubleclick.net/googlesyndication.com/googleadservices.com/googletagservices.com
+// навмисно НЕ блокуємо: плеєр YouTube використовує ці домени і для перевірки
+// "чи заблоковано рекламу" перед стартом відтворення — порожня відповідь замість
+// очікуваної призводила до помилки "відео недоступне" (152-4) на деяких пристроях
+// (планшет дитини з окремим Google-акаунтом), хоч на іншому пристрої зі своєю сесією
+// того ж коду вистачало, щоб відтворення все одно проходило.
 private val AD_HOST_FRAGMENTS = listOf(
-    "doubleclick.net",
-    "googleadservices.com",
-    "googlesyndication.com",
     "google-analytics.com",
-    "googletagmanager.com",
-    "googletagservices.com"
+    "googletagmanager.com"
 )
 
 @SuppressLint("SetJavaScriptEnabled")
