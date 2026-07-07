@@ -3,10 +3,8 @@ package ua.safetube.kids.ui
 import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import java.io.ByteArrayInputStream
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -78,37 +76,18 @@ fun PlayerScreen(appState: AppState, videoId: String, onBack: () -> Unit) {
     }
 }
 
-// Лише чисто трекінгові домени (аналітика, без відношення до самого відтворення).
-// doubleclick.net/googlesyndication.com/googleadservices.com/googletagservices.com
-// навмисно НЕ блокуємо: плеєр YouTube використовує ці домени і для перевірки
-// "чи заблоковано рекламу" перед стартом відтворення — порожня відповідь замість
-// очікуваної призводила до помилки "відео недоступне" (152-4) на деяких пристроях
-// (планшет дитини з окремим Google-акаунтом), хоч на іншому пристрої зі своєю сесією
-// того ж коду вистачало, щоб відтворення все одно проходило.
-private val AD_HOST_FRAGMENTS = listOf(
-    "google-analytics.com",
-    "googletagmanager.com"
-)
+// Реальна HTTPS-сторінка на GitHub Pages (окремий репозиторій safetube-kids-player-page),
+// що вантажить офіційний YouTube IFrame Player API. Локальний HTML прямо у WebView
+// (loadDataWithBaseURL з підробленим base=youtube.com) YouTube приймає лише частково: базовий
+// плеєр стартує (це усувало "помилку 153"), але перевірка авторизації відтворення робить власні
+// запити зі справжнім Origin/Referer, якого в такої сторінки немає (вона не прийшла з мережі) —
+// це й давало "помилку 152-4" на деяких пристроях. З реальної адреси браузер сам підставляє
+// коректний Referer, як зі звичайного сайту.
+private const val PLAYER_PAGE_URL = "https://agetman56-dev.github.io/safetube-kids-player-page/player.html"
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun EmbeddedYouTubePlayer(videoId: String) {
-    val embedUrl = "https://www.youtube.com/embed/$videoId" +
-        "?rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&autoplay=1&enablejsapi=1"
-
-    // YouTube-плеєр очікує, що /embed/... відкриють у <iframe> на чужій сторінці (як на
-    // звичайних сайтах), а не як головну адресу WebView напряму — інакше видає "помилку 153".
-    // Тому загортаємо у мінімальну HTML-сторінку з іфреймом і вантажимо через
-    // loadDataWithBaseURL(base = youtube.com), щоб плеєр бачив "легітимний" origin.
-    val html = """
-        <!DOCTYPE html>
-        <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-        <body style="margin:0;padding:0;background:#000;overflow:hidden;">
-        <iframe src="$embedUrl" width="100%" height="100%" frameborder="0"
-          allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
-        </body></html>
-    """.trimIndent()
-
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
@@ -121,20 +100,13 @@ private fun EmbeddedYouTubePlayer(videoId: String) {
                 android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        // Обмежуємо тільки головний фрейм — сам iframe із embed-плеєром
-                        // повинен вільно вантажитись і посилатись на свої внутрішні ресурси.
+                        // Обмежуємо тільки головний фрейм — сам плеєр і його внутрішні
+                        // запити (youtube.com, ytimg.com тощо) повинні вільно вантажитись.
                         if (!request.isForMainFrame) return false
-                        return !request.url.toString().startsWith("https://www.youtube.com/embed/")
-                    }
-
-                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                        val host = request.url.host ?: return super.shouldInterceptRequest(view, request)
-                        val isAd = AD_HOST_FRAGMENTS.any { host.contains(it) }
-                        return if (isAd) WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
-                        else super.shouldInterceptRequest(view, request)
+                        return !request.url.toString().startsWith(PLAYER_PAGE_URL)
                     }
                 }
-                loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+                loadUrl("$PLAYER_PAGE_URL?v=$videoId")
             }
         }
     )
