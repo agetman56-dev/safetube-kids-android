@@ -39,7 +39,11 @@
         { "name": "Peppa Pig — Official Channel", "channelId": "UCAOtE1V7Ots4DjM8JLlrYgg" },
         { "name": "Super Simple Songs", "channelId": "UCLsooMJoIpl_7ux2jvdPB-Q" },
         { "name": "PBS KIDS", "handle": "pbskids" },
-        { "name": "Sesame Street", "handle": "sesamestreet" }
+        { "name": "Sesame Street", "handle": "sesamestreet" },
+        { "name": "Little Baby Bum", "channelId": "UCKAqou7V9FAWXpZd9xtOg3Q" },
+        { "name": "ChuChu TV", "channelId": "UCBnZ16ahKA2DZ_T5W0FPUXg" },
+        { "name": "Dave and Ava", "handle": "DaveAndAva" },
+        { "name": "Pinkfong Baby Shark", "channelId": "UCcdwLMPsaU2ezNSJU1nFoBQ" }
       ]
     }
   ]

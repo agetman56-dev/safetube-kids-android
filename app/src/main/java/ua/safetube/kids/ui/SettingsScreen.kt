@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -50,7 +50,12 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
     val timeLimitMinutes by appState.parental.timeLimitMinutes.collectAsState(initial = 60)
     var minutesText by remember(timeLimitMinutes) { mutableStateOf(timeLimitMinutes.toString()) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Назад") }
             Text("Налаштування для батьків", modifier = Modifier.padding(start = 8.dp))
@@ -74,23 +79,21 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
         }
 
         Text("Канали", modifier = Modifier.padding(top = 24.dp))
-        LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-            categories.forEachIndexed { catIdx, category ->
-                item { Text(category.title, modifier = Modifier.padding(top = 8.dp)) }
-                items(category.channels) { channel ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 2.dp)
-                    ) {
-                        Text(channel.name, modifier = Modifier.weight(1f))
-                        IconButton(onClick = {
-                            val updated = categories.toMutableList()
-                            val cat = updated[catIdx]
-                            updated[catIdx] = cat.copy(channels = cat.channels.filter { it != channel })
-                            appState.whitelistRepo.save(updated)
-                            appState.reloadCategories()
-                        }) { Icon(Icons.Filled.Close, contentDescription = "Прибрати") }
-                    }
+        categories.forEachIndexed { catIdx, category ->
+            Text(category.title, modifier = Modifier.padding(top = 8.dp))
+            category.channels.forEach { channel ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 2.dp)
+                ) {
+                    Text(channel.name, modifier = Modifier.weight(1f))
+                    IconButton(onClick = {
+                        val updated = categories.toMutableList()
+                        val cat = updated[catIdx]
+                        updated[catIdx] = cat.copy(channels = cat.channels.filter { it != channel })
+                        appState.whitelistRepo.save(updated)
+                        appState.reloadCategories()
+                    }) { Icon(Icons.Filled.Close, contentDescription = "Прибрати") }
                 }
             }
         }
@@ -129,7 +132,7 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
                     newUrl = ""
                 }
             },
-            modifier = Modifier.padding(top = 12.dp)
+            modifier = Modifier.padding(top = 12.dp, bottom = 24.dp)
         ) { Text("Додати") }
     }
 }
