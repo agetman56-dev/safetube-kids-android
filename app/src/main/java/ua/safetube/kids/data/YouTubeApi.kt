@@ -28,8 +28,18 @@ data class ResourceId(val videoId: String?)
 
 data class VideosListResponse(val items: List<VideoItem> = emptyList())
 data class VideoItem(val id: String, val snippet: VideoSnippet?)
+
+/**
+ * defaultAudioLanguage і defaultLanguage автор вказує сам при завантаженні відео.
+ * Це найточніший сигнал про мову — точніший за будь-який аналіз назви. Обидва поля
+ * приходять у ТІЙ САМІЙ відповіді videos.list, яку ми вже робимо заради
+ * liveBroadcastContent, тобто дістаються безкоштовно, без додаткової квоти.
+ * Заповнюють їх не всі автори, тому це не заміна текстовому фільтру, а перший рубіж.
+ */
 data class VideoSnippet(
-    val liveBroadcastContent: String = "none"
+    val liveBroadcastContent: String = "none",
+    val defaultAudioLanguage: String? = null,
+    val defaultLanguage: String? = null
 )
 
 data class Thumbnails(val medium: Thumbnail?, val high: Thumbnail?, val default: Thumbnail?)

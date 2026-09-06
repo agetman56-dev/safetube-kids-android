@@ -114,15 +114,23 @@ class YouTubeRepository(private val context: Context) {
         val videoIds = items.mapNotNull { it.snippet?.resourceId?.videoId }
         if (videoIds.isEmpty()) return emptyList()
 
-        // Другий запит: liveBroadcastContent, щоб відсіяти прямі трансляції/анонси.
-        val liveStatusByVideoId = api.getVideos(commaSeparatedIds = videoIds.joinToString(","), apiKey = apiKey)
-            .items.associate { it.id to (it.snippet?.liveBroadcastContent ?: "none") }
+        // Другий запит: беремо з нього і liveBroadcastContent (щоб відсіяти прямі
+        // трансляції), і мову, яку вказав автор відео. Обидва поля в одній
+        // відповіді — мова дістається без жодної додаткової одиниці квоти.
+        val detailsByVideoId = api.getVideos(commaSeparatedIds = videoIds.joinToString(","), apiKey = apiKey)
+            .items.mapNotNull { item -> item.snippet?.let { item.id to it } }.toMap()
 
         return items.mapNotNull { item ->
             val snippet = item.snippet ?: return@mapNotNull null
             val videoId = snippet.resourceId?.videoId ?: return@mapNotNull null
-            if (liveStatusByVideoId[videoId] != "none") return@mapNotNull null
-            if (LangFilter.isRussian(snippet.title, snippet.description)) return@mapNotNull null
+
+            val details = detailsByVideoId[videoId]
+            if ((details?.liveBroadcastContent ?: "none") != "none") return@mapNotNull null
+
+            val declaredLanguage = details?.defaultAudioLanguage ?: details?.defaultLanguage
+            if (LangFilter.shouldHide(declaredLanguage, snippet.title, snippet.description)) {
+                return@mapNotNull null
+            }
 
             Video(
                 videoId = videoId,

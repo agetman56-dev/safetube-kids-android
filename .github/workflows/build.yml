@@ -22,6 +22,21 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.9
 
+      # Тести йдуть ПЕРЕД збіркою: якщо мовний фільтр зламано, немає сенсу
+      # витрачати час на APK. Це єдиний спосіб перевірити Kotlin-логіку —
+      # на комп'ютері розробника немає ні JDK, ні Android SDK.
+      - name: Unit tests
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+
       - name: Build debug APK
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
