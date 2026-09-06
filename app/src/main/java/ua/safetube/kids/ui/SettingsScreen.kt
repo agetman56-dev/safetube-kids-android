@@ -36,6 +36,9 @@ import kotlinx.coroutines.launch
 import ua.safetube.kids.AppState
 import ua.safetube.kids.data.ChannelUrlParser
 
+private const val MIN_LIMIT = 5
+private const val MAX_LIMIT = 600
+
 @Composable
 fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
     val categories = appState.categories.value
@@ -70,13 +73,23 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
             OutlinedTextField(
                 value = minutesText,
                 onValueChange = { txt ->
-                    minutesText = txt.filter { it.isDigit() }
-                    minutesText.toIntOrNull()?.let { m -> scope.launch { appState.parental.setTimeLimitMinutes(m) } }
+                    // Раніше зберігалося будь-яке число: «0» миттєво блокував усі
+                    // відео, а порожнє поле мовчки лишало старе значення.
+                    minutesText = txt.filter { it.isDigit() }.take(3)
+                    val minutes = minutesText.toIntOrNull()
+                    if (minutes != null && minutes in MIN_LIMIT..MAX_LIMIT) {
+                        scope.launch { appState.parental.setTimeLimitMinutes(minutes) }
+                    }
                 },
+                isError = minutesText.toIntOrNull().let { it == null || it !in MIN_LIMIT..MAX_LIMIT },
                 label = { Text("хвилин/день") },
                 modifier = Modifier.padding(start = 16.dp).width(120.dp)
             )
         }
+        Text(
+            "Від $MIN_LIMIT до $MAX_LIMIT хвилин. Поза цими межами значення не зберігається.",
+            modifier = Modifier.padding(top = 4.dp)
+        )
 
         Text("Канали", modifier = Modifier.padding(top = 24.dp))
         categories.forEachIndexed { catIdx, category ->
@@ -88,11 +101,13 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
                 ) {
                     Text(channel.name, modifier = Modifier.weight(1f))
                     IconButton(onClick = {
-                        val updated = categories.toMutableList()
-                        val cat = updated[catIdx]
-                        updated[catIdx] = cat.copy(channels = cat.channels.filter { it != channel })
-                        appState.whitelistRepo.save(updated)
-                        appState.reloadCategories()
+                        scope.launch {
+                            val updated = categories.toMutableList()
+                            val cat = updated[catIdx]
+                            updated[catIdx] = cat.copy(channels = cat.channels.filter { it != channel })
+                            appState.whitelistRepo.save(updated)
+                            appState.reloadCategories()
+                        }
                     }) { Icon(Icons.Filled.Close, contentDescription = "Прибрати") }
                 }
             }
@@ -123,16 +138,31 @@ fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
             onClick = {
                 val parsed = ChannelUrlParser.parse(newName.ifBlank { newUrl }, newUrl)
                 if (parsed != null && categories.isNotEmpty()) {
-                    val updated = categories.toMutableList()
-                    val cat = updated[selectedCatIdx]
-                    updated[selectedCatIdx] = cat.copy(channels = cat.channels + parsed)
-                    appState.whitelistRepo.save(updated)
-                    appState.reloadCategories()
-                    newName = ""
-                    newUrl = ""
+                    scope.launch {
+                        val updated = categories.toMutableList()
+                        val cat = updated[selectedCatIdx]
+                        updated[selectedCatIdx] = cat.copy(channels = cat.channels + parsed)
+                        appState.whitelistRepo.save(updated)
+                        appState.reloadCategories()
+                        newName = ""
+                        newUrl = ""
+                    }
                 }
             },
             modifier = Modifier.padding(top = 12.dp, bottom = 24.dp)
         ) { Text("Додати") }
+
+        // Раніше повернути стартовий каталог було неможливо: щойно з'являвся
+        // власний список, файл з assets більше не читався ніколи.
+        Text("Відновлення", modifier = Modifier.padding(top = 8.dp))
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    appState.whitelistRepo.resetToBundled()
+                    appState.reloadCategories()
+                }
+            },
+            modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
+        ) { Text("Повернути початковий список каналів") }
     }
 }

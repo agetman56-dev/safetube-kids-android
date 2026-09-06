@@ -21,11 +21,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import ua.safetube.kids.AppState
+
+/** Крок лічильника часу перегляду. Менший крок — точніше, але частіші записи. */
+private const val TICK_MS = 30_000L
 
 /**
  * Офіційний YouTube IFrame Player у WebView — не власний плеєр, тому лишається сумісним
@@ -59,12 +65,31 @@ fun PlayerScreen(appState: AppState, videoId: String, onBack: () -> Unit) {
         return
     }
 
-    // Лічильник часу перегляду: рахуємо, поки екран плеєра відкритий (просте наближення,
-    // без точного стеження за play/pause у самому iframe).
+    // Лічильник часу перегляду.
+    //
+    // Раніше він крутився, поки екран був у композиції — тобто рахував і тоді,
+    // коли застосунок згорнули чи заблокували планшет. Денний ліміт вигорав
+    // намарно. Тепер лічильник живе лише у стані RESUMED: згорнули — пауза.
+    //
+    // Друга зміна: ліміт перевіряється НА ХОДУ, а не лише при відкритті відео.
+    // Раніше дитина на 59-й хвилині могла відкрити 40-хвилинний мультик
+    // і додивитися його повністю.
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(videoId) {
-        while (true) {
-            delay(60_000)
-            appState.parental.addWatchedSeconds(60)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(TICK_MS)
+                appState.parental.addWatchedSeconds((TICK_MS / 1000).toInt())
+
+                if (appState.parental.timeLimitEnabled.first()) {
+                    val limitMinutes = appState.parental.timeLimitMinutes.first()
+                    val watchedSeconds = appState.parental.watchedSecondsToday.first()
+                    if (watchedSeconds >= limitMinutes * 60) {
+                        limitReached = true   // екран сам перемкнеться, WebView знищиться
+                        break
+                    }
+                }
+            }
         }
     }
 

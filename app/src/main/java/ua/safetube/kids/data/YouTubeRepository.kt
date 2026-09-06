@@ -2,6 +2,7 @@ package ua.safetube.kids.data
 
 import android.content.Context
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -96,14 +97,66 @@ class YouTubeRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Ідентифікатор плейлиста завантажень каналу.
+     *
+     * Для каналів із channelId запит до API не потрібен узагалі: плейлист
+     * завантажень — це той самий ідентифікатор, де «UC» замінено на «UU».
+     * Мінус один мережевий запит і одна одиниця квоти на кожен такий канал —
+     * екран каналу відкривається помітно швидше.
+     *
+     * Для handle/username запит потрібен, але його результат кешується
+     * НАЗАВЖДИ: ідентифікатор каналу не змінюється. Раніше він не кешувався
+     * взагалі й питався щоразу.
+     */
     private suspend fun resolveUploadsPlaylistId(channel: WhitelistChannel): String? {
+        channel.channelId?.let { id ->
+            if (id.startsWith("UC") && id.length > 2) return "UU" + id.substring(2)
+        }
+
+        val key = cacheKey(channel)
+        uploadsPlaylistCache()[key]?.let { return it }
+
         val response = when {
             channel.channelId != null -> api.getChannelById(channelId = channel.channelId, apiKey = apiKey)
             channel.handle != null -> api.getChannelByHandle(handle = "@${channel.handle.removePrefix("@")}", apiKey = apiKey)
             channel.username != null -> api.getChannelByUsername(username = channel.username, apiKey = apiKey)
             else -> return null
         }
-        return response.items.firstOrNull()?.contentDetails?.relatedPlaylists?.uploads
+        val uploads = response.items.firstOrNull()?.contentDetails?.relatedPlaylists?.uploads
+        if (uploads != null) rememberUploadsPlaylist(key, uploads)
+        return uploads
+    }
+
+    // ---- постійний кеш «канал -> плейлист завантажень» ----
+
+    private val uploadsFile = File(context.filesDir, "uploads_playlists.json")
+    private var uploadsCache: MutableMap<String, String>? = null
+
+    private fun uploadsPlaylistCache(): MutableMap<String, String> {
+        uploadsCache?.let { return it }
+        val loaded: MutableMap<String, String> = try {
+            if (uploadsFile.exists()) {
+                val type = object : TypeToken<MutableMap<String, String>>() {}.type
+                gson.fromJson<MutableMap<String, String>>(uploadsFile.readText(), type) ?: mutableMapOf()
+            } else {
+                mutableMapOf()
+            }
+        } catch (e: Exception) {
+            mutableMapOf()
+        }
+        uploadsCache = loaded
+        return loaded
+    }
+
+    private fun rememberUploadsPlaylist(key: String, playlistId: String) {
+        val cache = uploadsPlaylistCache()
+        cache[key] = playlistId
+        try {
+            uploadsFile.writeText(gson.toJson(cache))
+        } catch (e: Exception) {
+            // не змогли зберегти — не біда, наступного разу спитаємо API знову
+        }
     }
 
     private suspend fun fetchFromNetwork(channel: WhitelistChannel): List<Video> {

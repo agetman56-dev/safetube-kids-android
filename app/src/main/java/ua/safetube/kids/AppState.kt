@@ -20,7 +20,11 @@ class AppState(context: Context) {
 
     val categories = mutableStateOf<List<WhitelistCategory>>(emptyList())
 
-    fun reloadCategories() {
+    /**
+     * suspend, бо читає файл: раніше виклик ішов у головному потоці
+     * (з LaunchedEffect та з onClick налаштувань) і давав ривки.
+     */
+    suspend fun reloadCategories() {
         categories.value = whitelistRepo.load()
     }
 }
