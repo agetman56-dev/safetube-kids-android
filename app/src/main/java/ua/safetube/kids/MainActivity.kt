@@ -13,6 +13,7 @@ import ua.safetube.kids.ui.CategoryScreen
 import ua.safetube.kids.ui.ChannelScreen
 import ua.safetube.kids.ui.HomeScreen
 import ua.safetube.kids.ui.PlayerScreen
+import ua.safetube.kids.ui.SearchScreen
 import ua.safetube.kids.ui.SettingsScreen
 import ua.safetube.kids.ui.theme.SafeTubeKidsTheme
 
@@ -46,7 +47,15 @@ private fun SafeTubeNavHost(appState: AppState, navController: NavHostController
             HomeScreen(
                 appState = appState,
                 onOpenCategory = { catIdx -> navController.navigate("category/$catIdx") },
+                onOpenSearch = { navController.navigate("search") },
                 onOpenSettings = { navController.navigate("settings") }
+            )
+        }
+        composable("search") {
+            SearchScreen(
+                appState = appState,
+                onOpenVideo = { videoId -> navController.navigate("player/$videoId") },
+                onBack = { navController.popBackStack() }
             )
         }
         composable("category/{catIdx}") { backStackEntry ->

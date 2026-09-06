@@ -50,7 +50,12 @@ private val tileGradients = listOf(
 )
 
 @Composable
-fun HomeScreen(appState: AppState, onOpenCategory: (Int) -> Unit, onOpenSettings: () -> Unit) {
+fun HomeScreen(
+    appState: AppState,
+    onOpenCategory: (Int) -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     val categories = appState.categories.value
     var showPinDialog by remember { mutableStateOf(false) }
 
@@ -63,6 +68,15 @@ fun HomeScreen(appState: AppState, onOpenCategory: (Int) -> Unit, onOpenSettings
             verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxSize()
         ) {
+            // Пошук — перша плитка, щоб дитина знаходила його одразу
+            item {
+                CategoryTile(
+                    icon = "🔍",
+                    title = "Пошук",
+                    colors = listOf(Color(0xFF78909C), Color(0xFF37474F)),
+                    onClick = onOpenSearch
+                )
+            }
             items(categories.size) { idx ->
                 val category = categories[idx]
                 CategoryTile(

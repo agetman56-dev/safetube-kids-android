@@ -128,6 +128,67 @@ class YouTubeRepository(private val context: Context) {
         return uploads
     }
 
+    /**
+     * Пошук по YouTube із трьома рівнями захисту:
+     *
+     * 1. safeSearch=strict у самому запиті — відсіює відверте.
+     * 2. Офіційна позначка YouTube «створено для дітей» (status.madeForKids).
+     *    Головний рівень: її ставить автор або сам YouTube.
+     * 3. Наш мовний фільтр — щоб не показувати російськомовне.
+     *
+     * Плюс відсіюються прямі трансляції (у них немає модерації в момент показу).
+     *
+     * Ціна: 100 одиниць квоти за пошук + 1 за перевірку відео = 101.
+     * З денних 10 000 це близько 99 пошуків на добу — для родини вистачає,
+     * але саме тому пошук робиться лише за прямою дією, ніколи у фоні.
+     */
+    suspend fun search(query: String): Result<List<Video>> {
+        if (query.isBlank()) return Result.success(emptyList())
+        return try {
+            Result.success(withContext(Dispatchers.IO) { searchInternal(query) })
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun searchInternal(query: String): List<Video> {
+        val found = api.search(query = query, apiKey = apiKey)
+        val ids = found.items.mapNotNull { it.id?.videoId }.distinct()
+        if (ids.isEmpty()) return emptyList()
+
+        val details = api.getVideos(commaSeparatedIds = ids.joinToString(","), apiKey = apiKey)
+
+        return details.items.mapNotNull { item ->
+            val snippet = item.snippet ?: return@mapNotNull null
+
+            // 1. без прямих трансляцій
+            if (snippet.liveBroadcastContent != "none") return@mapNotNull null
+
+            // 2. лише офіційно позначене як дитяче
+            val forKids = item.status?.madeForKids ?: item.status?.selfDeclaredMadeForKids ?: false
+            if (!forKids) return@mapNotNull null
+
+            // 3. мовний фільтр
+            val declaredLanguage = snippet.defaultAudioLanguage ?: snippet.defaultLanguage
+            if (LangFilter.shouldHide(declaredLanguage, snippet.title, snippet.description)) {
+                return@mapNotNull null
+            }
+
+            Video(
+                videoId = item.id,
+                title = snippet.title,
+                description = snippet.description,
+                thumbnailUrl = snippet.thumbnails?.medium?.url
+                    ?: snippet.thumbnails?.default?.url.orEmpty(),
+                channelId = snippet.channelId,
+                channelName = snippet.channelTitle,
+                publishedAt = snippet.publishedAt
+            )
+        }
+    }
+
     // ---- постійний кеш «канал -> плейлист завантажень» ----
 
     private val uploadsFile = File(context.filesDir, "uploads_playlists.json")

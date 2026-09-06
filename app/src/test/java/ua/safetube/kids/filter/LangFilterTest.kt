@@ -143,4 +143,30 @@ class LangFilterTest {
     fun `українські закінчення розпізнаються`() {
         assertEquals(LangFilter.Lang.UA, LangFilter.detectLang("прибирання робимо разом"))
     }
+
+    // ---- пошук по YouTube: мовний рівень захисту ----
+    // Офіційну позначку «для дітей» і safeSearch перевірити тут неможливо —
+    // вони на боці YouTube. Тут закріплюємо третій рівень: мову.
+
+    @Test
+    fun `у видачі пошуку російськомовне ховається`() {
+        val russianSearchResults = listOf(
+            "Развивающие мультфильмы для самых маленьких",
+            "Учим буквы и цифры для детей",
+            "Колыбельные песни для малышей"
+        )
+        val shown = russianSearchResults.filter { !LangFilter.shouldHide(null, it, "") }
+        assertTrue("Пропущено у видачі: $shown", shown.isEmpty())
+    }
+
+    @Test
+    fun `у видачі пошуку українське й англійське лишається`() {
+        val ok = listOf(
+            "Дитячі пісні українською для малюків",
+            "Українські казки на добраніч",
+            "Learn colors for kids"
+        )
+        val hidden = ok.filter { LangFilter.shouldHide(null, it, "") }
+        assertTrue("Помилково приховано у видачі: $hidden", hidden.isEmpty())
+    }
 }
