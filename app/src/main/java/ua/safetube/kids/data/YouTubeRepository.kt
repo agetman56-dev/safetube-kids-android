@@ -2,6 +2,7 @@ package ua.safetube.kids.data
 
 import android.content.Context
 import com.google.gson.Gson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -13,6 +14,15 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 private const val CACHE_TTL_MS = 24L * 60 * 60 * 1000 // 1 день
+
+/**
+ * Порожній результат живе в кеші лише 10 хвилин, а не добу. Порожнім він буває
+ * і тоді, коли канал не вдалося визначити через збій — раніше такий збій
+ * зачиняв канал на цілу добу, навіть коли мережа вже працювала.
+ */
+private const val EMPTY_CACHE_TTL_MS = 10L * 60 * 1000
+
+private val UNSAFE_FILENAME_CHARS = Regex("[^A-Za-z0-9_-]")
 
 private data class CacheEntry(val fetchedAt: Long, val videos: List<Video>)
 
@@ -41,9 +51,19 @@ class YouTubeRepository(private val context: Context) {
     private val gson = Gson()
     private val cacheDir = File(context.cacheDir, "channel_videos").apply { mkdirs() }
 
-    private fun cacheKey(channel: WhitelistChannel): String =
-        channel.channelId ?: channel.username ?: channel.handle
-        ?: error("WhitelistChannel '${channel.name}' не має жодного з channelId/username/handle")
+    /**
+     * Ключ кешу = ім'я файлу, тому в ньому не має бути символів, заборонених у
+     * назвах файлів. Кирилиця й пробіли перетворюються на «_», через що різні
+     * канали могли б отримати один файл — додаємо хеш вихідного рядка.
+     *
+     * Раніше тут був error() при відсутності всіх ідентифікаторів. Це кидало
+     * виняток із loadVideos, яка за задумом не має кидати нічого.
+     */
+    private fun cacheKey(channel: WhitelistChannel): String {
+        val raw = channel.channelId ?: channel.username ?: channel.handle ?: channel.name
+        val safe = raw.replace(UNSAFE_FILENAME_CHARS, "_")
+        return if (safe == raw) safe else safe + "_" + Integer.toHexString(raw.hashCode())
+    }
 
     suspend fun getVideosForChannel(channel: WhitelistChannel, forceRefresh: Boolean = false): List<Video> =
         withContext(Dispatchers.IO) {
@@ -55,6 +75,26 @@ class YouTubeRepository(private val context: Context) {
             writeCache(key, fresh)
             fresh
         }
+
+    /**
+     * Те саме, але помилка повертається значенням, а не винятком.
+     * Виняток усередині LaunchedEffect у Compose не ловиться і закриває застосунок —
+     * досить було відпасти Wi-Fi, щоб на планшеті дитини все просто зникло.
+     *
+     * Якщо свіжих даних дістати не вдалося, віддаємо прострочений кеш, якщо він є:
+     * старі відео краще, ніж порожній екран.
+     */
+    suspend fun loadVideos(channel: WhitelistChannel, forceRefresh: Boolean = false): Result<List<Video>> {
+        val key = cacheKey(channel)
+        return try {
+            Result.success(getVideosForChannel(channel, forceRefresh))
+        } catch (cancel: CancellationException) {
+            throw cancel   // скасування корутини — не помилка, його треба пропустити далі
+        } catch (error: Exception) {
+            val stale = withContext(Dispatchers.IO) { readCacheIgnoringAge(key) }
+            if (!stale.isNullOrEmpty()) Result.success(stale) else Result.failure(error)
+        }
+    }
 
     private suspend fun resolveUploadsPlaylistId(channel: WhitelistChannel): String? {
         val response = when {
@@ -101,8 +141,20 @@ class YouTubeRepository(private val context: Context) {
         val file = File(cacheDir, "$channelId.json")
         if (!file.exists()) return null
         return try {
-            val entry = gson.fromJson(file.readText(), CacheEntry::class.java)
-            if (System.currentTimeMillis() - entry.fetchedAt > CACHE_TTL_MS) null else entry.videos
+            val entry = gson.fromJson(file.readText(), CacheEntry::class.java) ?: return null
+            val ttl = if (entry.videos.isEmpty()) EMPTY_CACHE_TTL_MS else CACHE_TTL_MS
+            if (System.currentTimeMillis() - entry.fetchedAt > ttl) null else entry.videos
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Кеш будь-якої давності — запасний варіант, коли мережа недоступна. */
+    private fun readCacheIgnoringAge(channelId: String): List<Video>? {
+        val file = File(cacheDir, "$channelId.json")
+        if (!file.exists()) return null
+        return try {
+            gson.fromJson(file.readText(), CacheEntry::class.java)?.videos
         } catch (e: Exception) {
             null
         }

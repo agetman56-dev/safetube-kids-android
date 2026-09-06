@@ -108,6 +108,17 @@ private fun EmbeddedYouTubePlayer(videoId: String) {
                 }
                 loadUrl("$PLAYER_PAGE_URL?v=$videoId")
             }
+        },
+        // Без цього WebView не отримував ні onPause(), ні destroy(): після кнопки
+        // «Назад» звук міг грати далі, а сам WebView лишався в пам'яті.
+        // Порядок важливий: спершу зупинити відтворення, потім від'єднати, потім знищити.
+        onRelease = { webView ->
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            webView.onPause()
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.removeAllViews()
+            webView.destroy()
         }
     )
 }

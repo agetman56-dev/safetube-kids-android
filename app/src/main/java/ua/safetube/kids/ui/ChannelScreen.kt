@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import ua.safetube.kids.AppState
+import ua.safetube.kids.data.NetworkErrors
 import ua.safetube.kids.data.Video
 
 @Composable
@@ -46,10 +48,16 @@ fun ChannelScreen(
     val channel = appState.categories.value.getOrNull(catIndex)?.channels?.getOrNull(chIndex) ?: return
     var videos by remember { mutableStateOf<List<Video>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var errorText by remember { mutableStateOf<String?>(null) }
+    // Зміна цього лічильника перезапускає завантаження — кнопка «Спробувати ще раз»
+    var retryCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(channel) {
+    LaunchedEffect(channel, retryCount) {
         loading = true
-        videos = appState.youtubeRepo.getVideosForChannel(channel)
+        errorText = null
+        appState.youtubeRepo.loadVideos(channel, forceRefresh = retryCount > 0)
+            .onSuccess { videos = it }
+            .onFailure { errorText = NetworkErrors.message(it) }
         loading = false
     }
 
@@ -61,9 +69,27 @@ fun ChannelScreen(
 
         if (loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else if (errorText != null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("😕", fontSize = 48.sp)
+                    Text(
+                        text = errorText.orEmpty(),
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 20.dp)
+                    )
+                    Button(onClick = { retryCount++ }) { Text("Спробувати ще раз", fontSize = 18.sp) }
+                }
+            }
         } else if (videos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Поки що немає відео. Спробуйте пізніше.")
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Поки що немає відео.", fontSize = 16.sp)
+                    Button(
+                        onClick = { retryCount++ },
+                        modifier = Modifier.padding(top = 20.dp)
+                    ) { Text("Оновити", fontSize = 18.sp) }
+                }
             }
         } else {
             LazyVerticalGrid(
