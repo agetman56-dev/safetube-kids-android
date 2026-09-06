@@ -1,6 +1,5 @@
 package ua.safetube.kids.ui
 
-import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,7 +39,7 @@ private const val MIN_LIMIT = 5
 private const val MAX_LIMIT = 600
 
 @Composable
-fun SettingsScreen(appState: AppState, activity: Activity, onBack: () -> Unit) {
+fun SettingsScreen(appState: AppState, onBack: () -> Unit) {
     val categories = appState.categories.value
     val scope = rememberCoroutineScope()
 

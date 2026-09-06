@@ -1,6 +1,5 @@
 package ua.safetube.kids
 
-import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -10,7 +9,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import ua.safetube.kids.parental.ScreenPinHelper
 import ua.safetube.kids.ui.CategoryScreen
 import ua.safetube.kids.ui.ChannelScreen
 import ua.safetube.kids.ui.HomeScreen
@@ -31,8 +29,7 @@ class MainActivity : ComponentActivity() {
             SafeTubeKidsTheme {
                 SafeTubeNavHost(
                     appState = appState,
-                    navController = navController,
-                    activity = this
+                    navController = navController
                 )
             }
         }
@@ -43,14 +40,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @androidx.compose.runtime.Composable
-private fun SafeTubeNavHost(appState: AppState, navController: NavHostController, activity: Activity) {
+private fun SafeTubeNavHost(appState: AppState, navController: NavHostController) {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             HomeScreen(
                 appState = appState,
                 onOpenCategory = { catIdx -> navController.navigate("category/$catIdx") },
-                onOpenSettings = { navController.navigate("settings") },
-                activity = activity
+                onOpenSettings = { navController.navigate("settings") }
             )
         }
         composable("category/{catIdx}") { backStackEntry ->
@@ -84,7 +80,6 @@ private fun SafeTubeNavHost(appState: AppState, navController: NavHostController
         composable("settings") {
             SettingsScreen(
                 appState = appState,
-                activity = activity,
                 onBack = { navController.popBackStack() }
             )
         }

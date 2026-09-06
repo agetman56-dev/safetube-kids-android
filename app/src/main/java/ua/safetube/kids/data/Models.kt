@@ -1,10 +1,15 @@
 package ua.safetube.kids.data
 
-/** Одна категорія в застосунку (Мультфільми / Розвиток / Музика). */
+/**
+ * Одна категорія в застосунку (Мультфільми / Розвиток / Музика).
+ * icon — емодзі на плитці: дитина у 4 роки ще не читає, тому знак важливіший
+ * за напис. Якщо в json його немає, підставляється зірочка.
+ */
 data class WhitelistCategory(
     val id: String,
     val title: String,
-    val channels: List<WhitelistChannel>
+    val channels: List<WhitelistChannel>,
+    val icon: String? = null
 )
 
 /**
